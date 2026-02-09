@@ -145,3 +145,41 @@ type Writer interface {
 type Closer interface {
 	Close() error
 }
+
+//Seeker는 기본적인 Seek 메서드를 감싸는 인터페이스이다
+//Seek은 다음 Read나 Write작업을 위한 오프셋을 설정하며, 그 오프셋은 whence 값에 따라 해석된다
+//[SeekStart]는 파일의 시작점을 기준으로,
+//[SeekCurrent]는 현재 오프셋(위치)을 기준으로,
+//[SeekEnd]는 파일의 끝을 기준으로한다.
+// 예를들어, offset = -2는 파일의 끝에서 두 번째 바이트를 가리킨다
+
+//Seek은 파일의 시작점을 기준으로 계산된 "새로운 절대 오프셋"값과,
+//발생한 에러를 반환합니다(있다면)
+
+// 양수 오프셋으로 이동하는 것은 허용될 수 있지만,
+// 만약 새로운 오프셋이 대상 객체의 크기를 초과한다면
+// 그 이후의 I/O 작업들이 어떻게 동작할지는 구현에 따라 다릅니다.
+type Seeker interface {
+	Seek(offset int64, whence int) (int64, error)
+}
+
+//ReadWriter는 기본적인 Read와 Write 메서드를 그룹화한 인터페이스이다
+/*
+Java에서 interface를 extend한것과 비슷한듯
+*/
+type ReadWriter interface {
+	Reader
+	Writer
+}
+
+// ReadCloser는 기본적인 Read와 Close 메서드를 그룹화한 인터페이스이다
+type ReadCloser interface {
+	Reader
+	Closer
+}
+
+// WriteCloser는 기본적인 Write와 Close 메서드를 그룹화한 인터페이스이다
+type WriteCloser interface {
+	Writer
+	Closer
+}
