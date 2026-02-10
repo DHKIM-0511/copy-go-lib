@@ -183,3 +183,218 @@ type WriteCloser interface {
 	Writer
 	Closer
 }
+
+// ReadWriteCloser 는 기본적인 Read, Write, Close 메서드를 그룹화한 인터페이스이다
+type ReadWriteCloser interface {
+	Reader
+	Writer
+	Closer
+}
+
+// ReadSeeker는 기본적인 Read와 Seek 메서드를 그룹화한 인터페이스이다
+type ReadSeeker interface {
+	Reader
+	Seeker
+}
+
+// ReadSeekCloser는 기본적인 Read, Seek, Close메서드를 그룹화한 인터페이스이다
+type ReadSeekCloser interface {
+	Reader
+	Seeker
+	Closer
+}
+
+// WriteSeeker는 기본적인 Write와 Seek 메서드를 그룹화한 인터페이스이다
+type WriteSeeker interface {
+	Writer
+	Seeker
+}
+
+// ReadWriteSeeker는 기본적인 Read, Write, Seek메서드를 그룹화한 메서드이다
+type ReadWriteSeeker interface {
+	Reader
+	Writer
+	Seeker
+}
+
+// ReaderFrom은 ReadFrom 메서드를 감싸는 인터페이스이다
+// ReadFrom은 r로 부터 EOF나 에러를 만날 때 까지 데이터를 읽는다
+// 반환값 n은 읽은 바이트 수이다
+// 읽는 도중에 발생한 에러 중 EOF를 제외한 모든 에러가 반환된다
+// [Copy]함수는 대상객체가 구현했다면 [ReaderFrom]을 우선적으로 사용한다
+type ReaderFrom interface {
+	ReadFrom(r Reader) (n int64, err error)
+}
+
+// WriterTo는 WriteTo메서드를 감싸는 인터페이스이다
+// WrtierTo는 더 이상 쓸 데이터가 없거나 에러가 발생할 때까지 w에 데이터를 쓴다
+// 반환값 n 은 쓴 바이트 수
+// 쓰는 도중 발생한 모든 에러가 반환
+// [Copy]함수는 소스객체가 구현했다면 WrtierTo를 우선적으로 사용
+type WriterTo interface {
+	WriteTo(w Writer) (n int64, err error)
+}
+
+//ReaderAt은 기본적인 ReadAt 메서드를 감싸는 인터페이스이다
+//ReadAt은 기저 입력 소스의 오프셋 off위치 부터 시작하여
+//len(p) 바이트 만큼을 p로 읽어 들인다
+//읽은 바이트 수 n (0 <= n <= len(p))과 발생한 에러를 반환한다
+
+//ReatAt이 n < len(p)를 반환할 때 (요청보다 덜 읽었을 때),
+//왜 더 많은 바이트를 반환하지 못했는지 설명하는 nil이 아닌 에러를 반환한다.
+//이 점에 있어서 ReadAt은 Read보다 더 엄격하다
+
+//비록 ReadAt이 n <len(p)을 반환하더라도, 호출 도중에 p의 전체 공간을
+//임시 공간으로 사용할 수 있다
+//만약 데이터가 일부만 있고 len(p) 바이트만큼은 없다면,
+//ReadAt은 모든 데이터가 준비되거나 에러가 발생할 때까지 블로킹한다
+//이 점이 Read와 다른점이다
+
+// 만약 ReadAt이 탐색 오프셋을 가진 입력 소스로부터 읽는 중이라면,
+// ReadAt은 그 기저의 탐색 오프셋에 영향을 주어서도 안되고, 영향을 받아서도 안된다
+// ReadAt의 클라이언트들은 동일한 입력 소스에 대해 '병렬로' ReadAt을 호출할 수 있다
+// 구현체는 p를 (호출 후에도) 붙들고 있으면 안된다
+/*
+읽을 위치(off)를 받기 때문에 Thread-safe하다
+Read: 일단 받은거 줄 수 있음
+ReadAt: 일단 주지 않음. 끝까지 기다렸다가 다 줌 (다 안오면 에러)
+*/
+type ReaderAt interface {
+	ReadAt(p []byte, off int64) (n int, err error)
+}
+
+//WriterAt은 기본적인 WriteAt 메서드를 감싸는 인터페이스이다
+//WriteAt은 기저 데이터 스트림의 off 오프셋(위치)에
+//p로부터 len(p) 바이트만큼을 쓴다
+
+//p에서 쓴 바이트 수 n (0 <= n <= len(p))과,
+//쓰기 작업을 조기에 중단시킨 에러가 있다면 그 에러를 반환한다.
+
+//만약 n < len(p)를 반환하면(다 못썼다면), WriteAt은 반드시 nil이 아닌 에러를 반환해야한다
+//만약 탐색 오프셋(seek offset, 커서)이 있는 대상에 WriterAt으로 쓰는 중이라면,
+//WriterAt은 그 기저의 탐색 오프셋에 영향을 주어서도 안되고, 영향을 받아서도 안된다.
+
+// WriteAt의 클라이언트들은 쓰기 범위가 겹치지 않는다면,
+// 동일한 대상에 대해 '병렬로' WriteAt을 호출할 수 있다
+// 구현체는 p를 (호출한 후에도) 붙들고 있으면 안된다.
+/*
+오프셋이 겹친다면 RaceCondition이 발생할 수 있으므로 주의해야한다
+*/
+type WriterAt interface {
+	WriteAt(p []byte, off int64) (n int, err error)
+}
+
+//ByteReader는 ReadByte 메서드를 감싸는 인터페이스이다
+//ReadByte는 입력으로 부터 다음 바이트를 읽어서 반환하거나,
+//발생한 에러를 반환한다
+
+//만약 ReadByte가 에러를 반환한다면, 입력 바이트는 소비되지 않은 상태이며,
+//반환된 바이트 값은 정의되지 않음(의미가 없다)
+
+// ReadByte는 '한 번에 한 바이트씩 (byte-at-time)' 처리하기 위한 효율적인 인터페이스를 제공한다.
+// ByteReader를 구현하지 않은[Reader]는 bufio.NewReader를 사용해 감싸줌으로 이 메서드를 추가할 수 있다
+/*
+에러 발생시 byte값은 쓰레기값이 될 수 있으므로 사용x
+r := bufio.NewReader(f) -> 버퍼링 처리
+*/
+type ByteReader interface {
+	ReadByte() (byte, error)
+}
+
+//ByteScanner는 기본적인 ReadByte 메서드에 UnreadByte 메서드를 추가한 인터페이스이다
+//UnReadByte는 바로 다음 ReadByte 호출이 '마지막으로 읽었던 바이트'를 다시 반환하게 만든다
+
+//만약 마지막 연산이 성공적인 ReadByte 호출이 아니라면(예: Write를 했거나, Seek을 했거나 등),
+//UnreadByte는 에러를 반환할 수 있고,
+//(구현에 따라)마지막으로 읽은 바이트(혹은 그 이전 바이트)를 다시 안 읽은 상태로 돌리거나,
+//([Seeker] 인터페이스를 지원하는 구현체라면)현재 오프셋의 1바이트 전으로 탐색(Seek)할 수 있다
+/*
+보통 직전값만 살릴 수 있음
+*/
+type ByteScanner interface {
+	ByteReader
+	UnreadByte() error
+}
+
+// ByteWriter는 WriteByte 메서드를 감사는 인터페이스이다.
+type ByteWriter interface {
+	WriterByte(c byte) error
+}
+
+//RuneReader는 ReadRune 메서드를 감싸는 인터페이스이다
+//RewadRune은 인코딩된 유니코드 문자 하나를 읽고
+//그 룬(rune, 문자값)과 그것이 차지하는 바이트 크기를 반환한다
+//만약 읽을 수 있는 문자가 없다면 err가 설정됨
+/*
+rune = int32
+문자열을 모두 4바이트로 처리한다
+*/
+type RuneReader interface {
+	ReadRune() (r rune, size int, err error)
+}
+
+//RuneScanner는 기본적인 ReadRune 메서드에 UnreadRune 메서드를 추가한 인터페이스이다
+//UnreadRune는 바로 다음 ReadRune호출이 '마지막으로 읽었던 룬(문자)'를 다시 반환한다
+
+//만약 마지막 연산이 성공적인 ReadRune 호출이 아니었다면, UnreadRune은
+//에러를 반환할 수 있고
+//(구현에 따라)마지막으로 읽은 룬(혹은 그 이전 룬)을 다시 안 읽은 상태로 돌리거나,
+// ([Seeker]인터페이스를 지원하는 구현체라면) 현재 오프셋의 '이전 룬의 시작 지점'으로 탐색할 수 있다
+/*
+UnreadByte -> 무조건 1바이트 이동
+UnreadRune -> 숫자, 한글 등에 따라 이동 거리가 다름 (lastRuneSize에 저장)
+*/
+type RuneScanner interface {
+	RuneReader
+	UnreadRune() error
+}
+
+// StringWriter는 WriteString메서드를 감싸는 인터페이스이다
+type StringWriter interface {
+	WriteString(s string) (n int, err error)
+}
+
+// WriteString은 바이트 슬라이스를 받는 w에 문자열 s의 내용을 쓴다
+// 만약 w가 [StringWriter]인터페이스를 구현하고 있다면, [StringWriter.WriterString]이 직접 호출된다
+// 그렇지 않으면, [Writer.Write]가 정확히 한 번 호출된다
+/*
+WriteString 이 내부적으로 최적의 방법을 찾아준다
+*/
+func WriteString(w Writer, s string) (n int, err error) {
+	//1. 타입 단언을 통해 더 효츌적인 메서드가 있는지 찔러본다.
+	/*
+		바이트 배열을 안쓰고 바로 쓰므로 더 효율적
+	*/
+	if sw, ok := w.(StringWriter); ok {
+		return sw.WriteString(s)
+	}
+	//2.없다면, 바이트 슬라이스로 변환(메모리 복사 발생)하여 쓴다
+	return w.Write([]byte(s))
+}
+
+//ReadAtLeast는 r에서 buf로 최소 min 바이트를 읽을 때까지 읽어 들인다
+//복사된 바이트 수 n을 반환하며, 만액 min보다 적게 읽혔다면 에러를 반환한다
+//바이트를 하나도 읽지 못했을때만 에러가 EOF이다
+
+// 만약 min바이트 보다 적게 읽은 상태에서 EOF가 발생하면 [ErrUnexpectedEOF]를 반환한다
+// 만약 min이 buf의 길이보다 크다면 [ErrShortBuffer]를 반환한다
+// 반환 시, err == nil인 겨웅에만 n >= min이 성립한다(즉, 성공 시 n >= min)
+// 만약 r이 최소 min바이트 이상을 읽은 상태에서 에러를 반환했다면, 그 에러는 무시된다
+func ReadAtLeast(r Reader, buf []byte, min int) (n int, err error) {
+	if len(buf) < min {
+		return 0, ErrShortBuffer
+	}
+
+	for n < min && err == nil {
+		var nn int
+		//buf[n:] -> 슬라이싱을 통해 "읽어야 할 남은 공간"만 전달
+		nn, err = r.Read(buf[n:])
+		n += nn
+	}
+	if n >= min {
+		err = nil //충분히 읽었으면, 마지막에 발생한 에러 (EOF 등)는 무시하고 성공 처리
+	} else if n > 0 && err == EOF {
+		err = ErrUnexpectedEOF //읽다 말았는데 끊기면 "예기치 못한 EOF"
+	}
+	return //Named Return Value 사용(n, err 반환)
+}
