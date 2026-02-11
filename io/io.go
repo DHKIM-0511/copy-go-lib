@@ -373,13 +373,19 @@ func WriteString(w Writer, s string) (n int, err error) {
 }
 
 //ReadAtLeast는 r에서 buf로 최소 min 바이트를 읽을 때까지 읽어 들인다
-//복사된 바이트 수 n을 반환하며, 만액 min보다 적게 읽혔다면 에러를 반환한다
+//복사된 바이트 수 n을 반환하며, 만약 min보다 적게 읽혔다면 에러를 반환한다
 //바이트를 하나도 읽지 못했을때만 에러가 EOF이다
 
 // 만약 min바이트 보다 적게 읽은 상태에서 EOF가 발생하면 [ErrUnexpectedEOF]를 반환한다
 // 만약 min이 buf의 길이보다 크다면 [ErrShortBuffer]를 반환한다
 // 반환 시, err == nil인 겨웅에만 n >= min이 성립한다(즉, 성공 시 n >= min)
 // 만약 r이 최소 min바이트 이상을 읽은 상태에서 에러를 반환했다면, 그 에러는 무시된다
+/*
+Named Return Value
+ - 메서드 시그니처 부분에, 리턴에 선언된 값(여기선 n, err)는 별도 선언없이 사용
+ - 리턴에 변수명을 사용하지 않는다면 일반적으로 쓸 수 있음
+ - 리턴에 변수명을 사용하면 선언불가, 할당가능
+*/
 func ReadAtLeast(r Reader, buf []byte, min int) (n int, err error) {
 	if len(buf) < min {
 		return 0, ErrShortBuffer
@@ -397,4 +403,23 @@ func ReadAtLeast(r Reader, buf []byte, min int) (n int, err error) {
 		err = ErrUnexpectedEOF //읽다 말았는데 끊기면 "예기치 못한 EOF"
 	}
 	return //Named Return Value 사용(n, err 반환)
+}
+
+// ReadFull은 r에서 buf로 정확히 len(buf) 바이트만큼 (버퍼 가득)을 읽어들입니다.
+// 복사된 바이트 수 n을 반환하며, 만약(버퍼 크기보다) 적게 읽혔다면 에러 반환
+// 바이트를 하나도 읽지 못했을때만 에러가 EOF
+// 만약 일부는 읽었지만, 전체(버퍼 크기)를 다 읽지 못하면 EOF가 발생한다면 [ErrUnexpectedEOF]를 반환
+// 반환 시, err ==nil인 경우만 n == len(buf)가 성립한다
+// 즉, 에러가 없으면 버퍼가 꽉 찬다
+// 만약 r이 최소 len(buf) 바이트 이상을 읽은 상태에서 에러를 반환한다면, 그에러는 무시
+/*
+읽기 시작하려는데, 이미 연결이 끊긴 경우
+ - 반환값은 0바이트,  err = io.EOF
+ 	-> 정상 종료로 판단
+100바이트 예상하고 읽었지만, 50바이트에서 연결 종료
+ - 반환값은 50바이트, err = io.ErrUnexpectedROF
+	-> 에러로 판단
+*/
+func ReadFull(r Reader, buf []byte) (n int, err error) {
+	return ReadAtLeast(r, buf, len(buf))
 }
